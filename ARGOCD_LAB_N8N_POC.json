@@ -1,0 +1,556 @@
+{
+  "name": "ARGOCD_LAB_N8N_POC",
+  "nodes": [
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "app",
+              "value": "={{ $json.body[0].app }}"
+            },
+            {
+              "name": "commit",
+              "value": "={{ $json.body[0].commit }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "3ea0e088-fd78-4226-bf9a-eec63ffa1aa2",
+      "name": "Set App and Commit",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [
+        -1620,
+        80
+      ],
+      "alwaysOutputData": false,
+      "notesInFlow": false
+    },
+    {
+      "parameters": {
+        "url": "=http://argocd-server.argocd.svc.cluster.local/api/v1/applications/{{ $('Set App and Commit').item.json.app }}",
+        "sendHeaders": true,
+        "specifyHeaders": "json",
+        "jsonHeaders": "={\n  \"Authorization\": \"Bearer {{ $json.token }}\",\n  \"Content-Type\": \"application/json\"\n}\n ",
+        "options": {
+          "response": {
+            "response": {}
+          },
+          "timeout": 10000
+        }
+      },
+      "id": "7b225238-550a-40e6-b33e-9eefeb97f59b",
+      "name": "Get App Info",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -1200,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://argocd-server.argocd.svc.cluster.local/api/v1/applications/{{ $('Set App and Commit').item.json.app }}/sync",
+        "sendHeaders": true,
+        "specifyHeaders": "json",
+        "jsonHeaders": "={\n  \"Authorization\": \"Bearer {{ $('API SESSION').item.json.token }}\",\n  \"Content-Type\": \"application/json\"\n}",
+        "options": {}
+      },
+      "id": "79b1011a-fdd6-4d71-9639-70c951f09533",
+      "name": "Sync App",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -760,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 60,
+        "unit": "seconds"
+      },
+      "id": "b0401d59-9d81-421f-96a9-f4072ca3ee31",
+      "name": "Wait 30s",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        -540,
+        80
+      ],
+      "webhookId": "b66d6a23-182b-470e-86ea-a3f1f3c0050b"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "3455c0d6-b17f-42bc-b3a7-0577775752bd",
+              "leftValue": "={{ $json.status.sync.revision.slice(0, 7) }}",
+              "rightValue": "={{ $('Set App and Commit').item.json.commit }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "6a62cbc0-d508-4da0-a63e-7c477282cac2",
+      "name": "Check Commit Diff",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -980,
+        80
+      ],
+      "alwaysOutputData": false,
+      "notesInFlow": false
+    },
+    {
+      "parameters": {
+        "authentication": "webhook",
+        "content": "={{ $json.result }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 2,
+      "position": [
+        340,
+        180
+      ],
+      "id": "99cf5a1e-9cbc-4107-9456-858b18d067f3",
+      "name": "ARGOCD DISCORD FAILED",
+      "webhookId": "2abe3baf-b1fc-4365-a36a-0a810ad369ed",
+      "retryOnFail": true,
+      "waitBetweenTries": 5000,
+      "maxTries": 5,
+      "credentials": {
+        "discordWebhookApi": {
+          "id": "JhSEfAPtANxFb5Ni",
+          "name": "Discord Webhook account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "webhook",
+        "content": "={{ $json.result }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 2,
+      "position": [
+        340,
+        -20
+      ],
+      "id": "3789d5d4-fad8-47b1-887f-1ca24a694104",
+      "name": "ARGOCD DISCORD PASSED",
+      "webhookId": "dd5fc85f-53cb-4b3f-988d-0dd3b33dfef3",
+      "credentials": {
+        "discordWebhookApi": {
+          "id": "JhSEfAPtANxFb5Ni",
+          "name": "Discord Webhook account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "result",
+              "value": "=### ✅ ArgoCD Sync Succeeded\n**App**: {{ $json.metadata.name }}\n**Commit**: {{ $json.status.sync.revision.slice(0, 7) }}\n**Status**: Healthy 🎉"
+            }
+          ]
+        },
+        "options": {
+          "dotNotation": false
+        }
+      },
+      "id": "62c03760-0b47-4daf-8b17-84a0e02cbec4",
+      "name": "Success Message",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [
+        120,
+        -20
+      ],
+      "notesInFlow": false
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "result",
+              "value": "=### ❌ ArgoCD Sync Failed\n**App**: {{ $json.metadata.name }}\n**Commit**: {{ $json.status.sync.revision.slice(0, 7) }}\n**Reason**: Commit mismatch or health check failed 🚨\n"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "41f8d1c9-0dde-4094-ab61-a20e50db169b",
+      "name": "Failure Message",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [
+        120,
+        180
+      ],
+      "retryOnFail": false,
+      "waitBetweenTries": 1000,
+      "maxTries": 5
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "193895a8-eab8-48b1-9c98-5aaf54c11b38",
+              "leftValue": "={{ $json.status.health.status }}",
+              "rightValue": "=Healthy",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "619ccd32-1a46-4d64-8f99-ee5c96a305fa",
+      "name": "Healthy or Unhealthy",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -100,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=http://argocd-server.argocd.svc.cluster.local/api/v1/applications/{{ $json.metadata.name }}",
+        "sendHeaders": true,
+        "specifyHeaders": "json",
+        "jsonHeaders": "={\n  \"Authorization\": \"Bearer {{ $('API SESSION').item.json.token }}\",\n  \"Content-Type\": \"application/json\"\n} ",
+        "options": {}
+      },
+      "id": "284e38bc-e6b6-4869-b34b-b75a5b45bdd0",
+      "name": "Get App Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -320,
+        80
+      ],
+      "retryOnFail": true,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "content": "## ARGOCD N8N !!",
+        "height": 80
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -540,
+        380
+      ],
+      "typeVersion": 1,
+      "id": "c8900a91-6b17-48cd-8639-5fbfc23d4711",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://argocd-server.argocd.svc.cluster.local/api/v1/session",
+        "sendHeaders": true,
+        "specifyHeaders": "json",
+        "jsonHeaders": "{\n  \"Content-Type\": \"application/json\"\n}",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "username",
+              "value": "admin"
+            },
+            {
+              "name": "password",
+              "value": "jQLqwDIrvC9XTHR9"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {}
+          },
+          "timeout": 10000
+        }
+      },
+      "id": "9162ca0b-0dc3-4fcf-9d5e-0d056409553e",
+      "name": "API SESSION",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -1400,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "result",
+              "value": "=### ❌ ArgoCD Sync Failed Commit ไม่ถูกต้อง \n**App**: {{ $json.metadata.name }}\n**Commit**: {{ $('Set App and Commit').item.json.commit }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "822fedf4-b4c1-4f7b-ad9d-55ad6f3a428c",
+      "name": "Failure Commit",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [
+        -760,
+        200
+      ],
+      "retryOnFail": false,
+      "waitBetweenTries": 1000,
+      "maxTries": 5
+    },
+    {
+      "parameters": {
+        "authentication": "webhook",
+        "content": "={{ $json.result }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 2,
+      "position": [
+        -760,
+        440
+      ],
+      "id": "0be1c585-627c-479d-b364-c7c2f221d2c5",
+      "name": "ARGOCD DISCORD COMMIT FAILED",
+      "webhookId": "2abe3baf-b1fc-4365-a36a-0a810ad369ed",
+      "retryOnFail": false,
+      "waitBetweenTries": 5000,
+      "maxTries": 5,
+      "credentials": {
+        "discordWebhookApi": {
+          "id": "JhSEfAPtANxFb5Ni",
+          "name": "Discord Webhook account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "argocd-sync",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1860,
+        80
+      ],
+      "id": "1db975e8-cb18-4803-a8fb-f4c383fa838c",
+      "name": "Webhook",
+      "webhookId": "1b3a75b9-095f-4212-b446-45e99d2a4882"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Set App and Commit": {
+      "main": [
+        [
+          {
+            "node": "API SESSION",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get App Info": {
+      "main": [
+        [
+          {
+            "node": "Check Commit Diff",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync App": {
+      "main": [
+        [
+          {
+            "node": "Wait 30s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 30s": {
+      "main": [
+        [
+          {
+            "node": "Get App Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Commit Diff": {
+      "main": [
+        [
+          {
+            "node": "Sync App",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Failure Commit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ARGOCD DISCORD FAILED": {
+      "main": [
+        [
+          {
+            "node": "Wait 30s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Success Message": {
+      "main": [
+        [
+          {
+            "node": "ARGOCD DISCORD PASSED",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Failure Message": {
+      "main": [
+        [
+          {
+            "node": "ARGOCD DISCORD FAILED",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Healthy or Unhealthy": {
+      "main": [
+        [
+          {
+            "node": "Success Message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Failure Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get App Status": {
+      "main": [
+        [
+          {
+            "node": "Healthy or Unhealthy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "API SESSION": {
+      "main": [
+        [
+          {
+            "node": "Get App Info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Failure Commit": {
+      "main": [
+        [
+          {
+            "node": "ARGOCD DISCORD COMMIT FAILED",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Set App and Commit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "aca082d2-ecc7-4fdc-b792-1ab67567e285",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "309466d2055eb1fefe952981eaa665e137155fb2cbe891973f011eb5f41fdf0c"
+  },
+  "id": "LU6gq9xKO1gFjNP3",
+  "tags": []
+}
