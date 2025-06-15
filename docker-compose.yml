@@ -28,7 +28,7 @@ services:
       - DB_POSTGRESDB_PASSWORD=n8npass
       - N8N_BASIC_AUTH_ACTIVE=true
       - N8N_BASIC_AUTH_USER=thirapat12
-      - N8N_BASIC_AUTH_PASSWORD=LoveNaN#1312
+      - N8N_BASIC_AUTH_PASSWORD=thirapat12
       - N8N_HOST=localhost
       - N8N_PORT=5678
       - N8N_SECURE_COOKIE=false
